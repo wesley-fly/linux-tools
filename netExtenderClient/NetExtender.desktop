@@ -1,0 +1,10 @@
+[Desktop Entry]
+Encoding=UTF-8
+Exec=/usr/bin/netExtenderGui
+GenericName=SonicWALL NetExtender
+Icon=/usr/share/netExtender/icons/nx48.xpm
+Name=SonicWALL NetExtender
+StartupNotify=false
+Terminal=false
+Type=Application
+Categories=Network

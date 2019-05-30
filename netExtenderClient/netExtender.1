@@ -1,0 +1,207 @@
+.\" Manual page for SonicWALL NetExtender.
+.\" Copyright (c) 2019 SonicWALL.
+.Dd $\&Mdocdate$
+.Dt netExtender
+.Os
+.Sh NAME
+.Nm netExtender
+.Nd SonicWALL NetExtender command-line client for Mac OS X/Linux
+.\" .Sh LIBRARY
+.\" For sections 2, 3, & 9 only.
+.\" Not used in OpenBSD.
+.Sh SYNOPSIS
+.Nm netExtender
+.Op Fl u Ar username
+.Op Fl p Ar password
+.Op Fl d Ar domain
+.Op Ar options
+.Op Ar server Ns Op :port
+.Sh DESCRIPTION
+NetExtender is a client for use with SonicWALL's SRA and UTM appliances.  It
+enables remote users to securely connect to a remote network.
+.Pp
+With NetExtender, remote users can securely run any application on the remote
+network.  Users can upload and download files, mount network drives, and access
+resources in the same way as if they were on the local network.  The NetExtender
+connection uses a Point-to-Point Protocol (PPP) connection inside a secure SSL
+tunnel.
+.Sh OPTIONS
+.Ss Commonly-Used Options
+.Bl -tag -width indent
+.It Fl u Ar username , Fl -username= Ns Ar username
+The username to log into the SSL VPN server.
+.It Fl p Ar password , Fl -password= Ns Ar password
+The password to log into the SSL VPN server.  Specifying a password on the
+command line is considered insecure since the password can appear in output of
+the
+.Xr ps 1
+or
+.Xr history 1
+commands, and is therefore discouraged.
+.It Fl d Ar domain , Fl -domain= Ns Ar domain
+The domain to log into the SSL VPN server.  Case-sensitive.
+.It Ar server Ns Op :port
+Specify the SRA or UTM appliance to connect.  May be an IP address or a
+fully-qualified domain name (FQDN).  A port may be specified if necessary
+(e.g. "tz200.example.com:4433").
+.El
+.Ss Help/Info/Diagnostics
+.Bl -tag -width indent
+.It Fl h , -help
+Print basic command-line usage.
+.It Fl v , -version
+Print NetExtender version information and exit.
+.It Fl V , -version-num
+Print NetExtender version number and exit.
+.It Fl e Fl h , Fl -cipher-list
+Display a list of accepted SSL ciphers.
+.It Fl r Ar file , Fl -diag= Ns Ar file
+Generate a diagnostic report and exit.  The report is saved to the specified
+.Ar file .
+.El
+.Ss Advanced Options
+.Bl -tag -width indent
+.It Fl s , Fl -ppp-sync
+Select sync PPP mode (Linux only, may be needed for compatibility with UTM devices).
+.It Fl a , Fl -ppp-async
+Select async PPP mode.
+.It Fl -auto-reconnect
+Automatically reconnect in case of failure.  This is the default unless
+.Sy autoReconnect=false
+is set in the
+.Sy [preferences]
+section of
+.Pa ~/.netextender ,
+or
+.Sy --no-reconnect
+is specified.
+.It Fl -no-reconnect
+Disable auto-reconnect.
+.It Fl M Ar mtu , Fl -mtu= Ns Ar mtu
+Specify the MTU setting for the underlying PPP connection.
+.It Fl -dns-prefer-remote
+Try remote DNS first, then try local DNS
+.It Fl -dns-only-remote
+Only use remote DNS servers
+.It Fl -dns-only-local
+Only use local DNS servers
+.It Fl t Ar timeout , Fl -timeout= Ns Ar timeout
+Specify the SSL VPN login timeout value in seconds (default 30).
+.It Fl e Ar cipher , Fl -cipher= Ns Ar cipher
+Specify the encryption cipher of sslvpn tunnel.  Can be one of following:
+.Pp
+.Bl -item -compact
+.It
+ECDHE-RSA-RC4-SHA
+.It
+ECDHE-RSA-AES256-GCM-SHA384
+.It
+ECDHE-RSA-AES256-SHA384
+.It
+ECDHE-RSA-AES256-SHA
+.It
+AES256-GCM-SHA384
+.It
+AES256-SHA256
+.It
+AES256-SHA
+.It
+ECDHE-RSA-DES-CBC3-SHA
+.It
+DES-CBC3-SHA
+.It
+ECDHE-RSA-AES128-GCM-SHA256
+.It
+ECDHE-RSA-AES128-SHA256
+.It
+ECDHE-RSA-AES128-SHA
+.It
+AES128-GCM-SHA256
+.It
+AES128-SHA256
+.It
+AES128-SHA
+.It
+RC4-SHA  * May require explicit SSL VPN server configuration *
+.El
+.It Fl m , -no-routes
+Disable installation of remote routes.  This is a testing option and is not
+recommended for normal usage.
+.El
+.Sh EXAMPLES
+You may invoke netExtender with full login credentials:
+
+.Bk -words
+.Dl % netExtender -u demo -p password -d 'Active Directory' sslvpn.demo.sonicwall.com
+.Ek
+
+Or you may omit some arguments be prompted interactively:
+
+.Bk -words
+.Dl % netExtender sslvpn.demo.sonicwall.com
+.Ek
+
+Or you may omit all options:
+
+.Bk -words
+.Dl % netExtender
+.Ek
+.Sh COMPATIBILITY
+NetExtender is compatible with the following SonicWALL appliances:
+
+.Bl -bullet -compact
+.It
+SonicWALL SRA 4200/1200/Virtual Appliance
+.It
+SonicWALL SSL VPN 4000/2000/200
+.It
+SonicWALL Next-Generation Firewall appliances including the TZ, NSA, and E-Class NSA
+.El
+
+NetExtender is officially supported on the following client platforms:
+
+.Bl -bullet -compact
+.It
+Fedora 8+
+.It
+Ubuntu 7+
+.It
+OpenSUSE 10.3+
+.It
+Mac OS X 10.5+
+.El
+
+NetExtender may work properly on other Linux distributions, but they are not
+officially supported by SonicWALL.  A working
+.Xr pppd 8
+must be installed.  
+.Sh DIAGNOSTICS
+NetExtender generates a log file at
+.Pa ~/.netExtender.log .
+
+To generate a diagnostic report, use the following comand:
+
+.Dl % netExtender -r nxdiag.tgz
+
+This will create a file
+.Sy nxdiag.tgz
+which can be sent to SonicWALL tech support.  The diagnostic report is a
+plain-text file which includes information about your network configuration,
+running programs, and other details.
+.Sh SEE ALSO
+.Bl -tag -width indent
+.It Full NetExtender Documentation
+http://www.sonicwall.com/downloads/SSL_VPN_5.0_NetExtender_Feature_Module.pdf
+.It NetExtender Technology
+http://www.sonicwall.com/us/products/324.html
+.It SonicWALL SRA Appliances
+http://www.sonicwall.com/us/products/SSL_VPN_Platforms.html
+.It SonicWALL Next-Generation Firewall and Unified Threat Management
+http://www.sonicwall.com/us/products/Network_Security.html
+.Sh SUPPORT
+.Bl -tag -width indent
+.It SonicWALL Tech Support
+http://www.sonicwall.com/us/support
+.It SonicWALL Forums
+http://forum.sonicwall.com/
+.El

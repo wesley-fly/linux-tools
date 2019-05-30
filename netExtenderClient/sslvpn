@@ -1,0 +1,15 @@
+# ----------------------------------
+# do not modify following code !!!!
+#------------------------------------
+ktune
+local
+noipdefault
+noccp
+noauth
+novj
+#Multi-link disabled in pppd
+#nomp
+nopcomp
+noaccomp
+ipparam netExtender
+

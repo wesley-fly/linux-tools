@@ -1,0 +1,323 @@
+#!/bin/bash
+## install script for sonicwall sslvpn Linux client
+
+function fix_pppd_perms
+{
+	chmod -v u+s /usr/sbin/pppd
+	chmod -v a+x /usr/sbin/pppd
+	chmod -v a+rx /etc/ppp
+	chmod -v -R a+r /etc/ppp/peers
+	chmod -v a+x /etc/ppp/peers
+}
+
+if [ "$1" == "fixppp" ]
+then
+	fix_pppd_perms
+	exit
+fi
+
+VERSION="10.0.807"
+echo "--- SonicWALL NetExtender $VERSION Installer ---"
+
+USRLIB='/usr/lib'
+LIB='/lib'
+CABUNDLE='ca-bundle.crt'
+
+if [[ "$*" =~ "--force-install" ]]
+then
+	FORCE_INSTALL=1
+fi
+
+## FUNCTIONS ###########################################################
+
+function check_64bit
+{
+	# Are we on 64-bit architecture?
+	RE64='64-bit|64 bit'
+	if [[ "`uname -m`" =~ '64' ]]
+	then
+		# Is this NX package also 64-bit?
+		if [[ (! `file -b netExtender` =~ $RE64) && ($FORCE_INSTALL != 1) ]]
+		then
+			echo "ERROR: This copy of NetExtender is intended for 32-bit systems."
+			echo "       Please install a copy of the 64-bit version of NetExtender."
+			exit
+		fi
+
+		# Is /usr/lib64 a directory?
+		if [ -d /usr/lib64 -a ! -L /usr/lib64 ]
+		then
+			USRLIB='/usr/lib64'
+		fi
+
+		# Is /lib64 a directory?
+		if [ -d /lib64 -a ! -L /lib64 ]
+		then
+			LIB='/lib64'
+		fi
+	elif [[ (`file -b netExtender` =~ $RE64) && ($FORCE_INSTALL != 1) ]]
+	then
+		echo "ERROR: This copy of NetExtender is intended for 64-bit systems."
+		echo "       Please install a copy of the 32-bit version of NetExtender."
+		exit
+	fi
+}
+
+function exit_dependency_failure
+{
+	echo
+	echo "-------------------------- INSTALLATION FAILED -------------------------"
+	echo
+	echo "Library dependencies must be resolved before NetExtender will be able to"
+	echo "operate correctly.  Please resolve any dependencies listed above, then"
+	echo "try installing again."
+	echo
+	exit 1
+}
+
+function exit_ppp_missing
+{
+	echo
+	echo "-------------------------- INSTALLATION FAILED -------------------------"
+	echo
+	echo "NetExtender requires a working installation of pppd.  Please install"
+	echo "pppd and try again."
+	echo
+	exit 1
+}
+
+function exit_net_tools_missing
+{
+	echo
+	echo "-------------------------- INSTALLATION FAILED -------------------------"
+	echo
+	echo "NetExtender requires working 'ifconfig' and 'route' and 'ip' utilities."
+	if [ -e /usr/bin/pacman ]
+	then
+		# ArchLinux
+		echo "You can install them by running 'pacman -S net-tools' as root,"
+		echo "then try installing NetExtender again."
+	fi
+	echo
+	exit 1
+}
+
+function exit_success
+{
+	echo
+	echo "------------------------ INSTALLATION SUCCESSFUL -----------------------"
+	echo
+	echo "To launch NetExtender, do one of the following:"
+	echo
+	echo "  1. Click the NetExtender icon under the Applications menu"
+	echo "     (look under the 'Internet' or 'Network' category)"
+	echo "     or"
+	echo "  2. Type 'netExtenderGui'"
+
+	echo
+	exit 0
+}
+
+function assert_running_as_root
+{
+	if [ "`id -u`" != "0" ]
+	then
+		echo "Please run the NetExtender installer as root."
+		echo "On many systems, you can use the sudo command:"
+		echo
+		echo "  sudo ./install"
+		echo
+		exit 1
+	fi
+}
+
+function check_library_dependencies
+{
+	echo "Checking library dependencies..."
+	MISSINGLIBS=`ldd netExtender | grep 'not found' | awk '{print $1}'`
+
+	if [ "$MISSINGLIBS" != "" ]
+	then
+		for i in $MISSINGLIBS
+		do
+			echo "  Missing library: $i"
+			FULLNAME="$i"
+			LIBNAME=`echo $i | awk -F. '{print $1 }'`
+			ALT=`find $LIB -maxdepth 1 -name "$LIBNAME.so*" -type f | sed 's/\*//g' | sort -r | head -1`
+
+			if [ "$ALT" == "" ]
+			then
+				# Didn't find anything in $LIB ; try $USRLIB
+				ALT=`find $USRLIB -maxdepth 1 -name "$LIBNAME.so*" -type f | sed 's/\*//g' | sort -r | head -1`
+			fi
+
+			if [ "$ALT" != "" ]
+			then
+				echo "  Found likely compatible version: $ALT"
+				REPLY='0'
+
+				while [ "$REPLY" != "y" -a "$REPLY" != "n" -a "$REPLY" != "Y" -a "$REPLY" != "N" ]
+				do
+					read -p '  Attempt auto-repair [Y/n]? ' -n1
+					if [ "$REPLY" == "" ]
+					then
+						REPLY='y'
+					else
+						echo ""
+					fi
+				done
+
+				if [ "$REPLY" == 'y' -o "$REPLY" == 'Y' ]
+				then
+					pushd . >/dev/null
+					cd `dirname $ALT`
+					ln -sv `basename $ALT` $FULLNAME
+					popd >/dev/null
+				else
+					exit_dependency_failure
+				fi
+			else
+				# No compatible version found
+				echo "  No compatible version found."
+				exit_dependency_failure
+			fi
+
+			echo ""
+		done
+	fi
+}
+
+function check_pppd
+{
+	echo 'Checking pppd...'
+	if [ ! -f '/usr/sbin/pppd' -o ! -x '/usr/sbin/pppd' ]
+	then
+		exit_ppp_missing
+	fi
+
+	NEED_PPPD_FIX=0
+	if [ ! -u '/usr/sbin/pppd' -o ! -x '/usr/sbin/pppd' -o ! -r '/etc/ppp/peers' -o ! -x '/etc/ppp/peers' ] ; then
+		NEED_PPPD_FIX=1
+	elif [[ ! `stat -c %A /usr/sbin/pppd` =~ 'x$' ]] ; then
+		NEED_PPPD_FIX=1
+	fi
+	
+	if [ $NEED_PPPD_FIX == 1 ] ; then
+		echo '  Do you want non-root users to be able to run NetExtender?'
+		echo '  If so, I can set pppd to run as root, but this could be '
+		echo '  considered a security risk.'
+		echo
+		REPLY='0'
+
+		while [ "$REPLY" != "y" -a "$REPLY" != "n" -a "$REPLY" != "Y" -a "$REPLY" != "N" ]
+		do
+			read -p '  Set pppd to run as root [y/N]? ' -n1
+			if [ "$REPLY" == "" ]
+			then
+				REPLY='n'
+			else
+				echo ""
+			fi
+
+			if [ "$REPLY" == 'y' -o "$REPLY" == 'Y' ]
+			then
+				fix_pppd_perms
+			else
+				echo '  You have chosen NOT to allow non-root users to run NetExtender.'
+			fi
+		done
+	fi
+}
+
+function check_net_tools
+{
+	NET_TOOLS_FAIL=0
+
+	if [ ! -x /sbin/ifconfig ]
+	then
+		NET_TOOLS_FAIL=1
+	fi
+	if [ ! -x /sbin/route ]
+	then
+		NET_TOOLS_FAIL=1
+	fi
+
+	if [ $NET_TOOLS_FAIL == 1 ]
+	then
+		if [ ! -x /sbin/ip ]
+		then
+			echo "/sbin/ifconfig, /sbin/route, /sbin/ip are missing"
+			exit_net_tools_missing
+		else
+			echo "use /sbin/ip"
+		fi
+
+	fi
+}
+
+function install_files
+{
+	echo 'Copying files...'
+	mkdir -p /etc/ppp/peers
+	mkdir -p /usr/share/man/man1
+	mkdir -p /usr/share/netExtender/icons
+	install -m 644 sslvpn /etc/ppp/peers/sslvpn
+	install -m 755 netExtender /usr/sbin
+	install -m 755 netExtenderGui /usr/bin
+	install -m 744 nxMonitor /usr/sbin
+	install -m 755 uninstallNetExtender /usr/sbin
+
+	if [ -d /etc/ppp/ip-up.d -a -d /etc/ppp/ip-down.d ]
+	then
+		# SUSE/Ubuntu/Arch mode
+		# Make sure IPv6 directories exist as well
+		if [ ! -d /etc/ppp/ipv6-up.d ]
+			then 
+				mkdir -p /etc/ppp/ipv6-up.d
+		fi
+		if [ ! -d /etc/ppp/ipv6-down.d ]
+			then
+				mkdir -p /etc/ppp/ipv6-down.d
+		fi
+	fi
+
+	rm -f /etc/ppp/sslvpn.pid
+	rm -f /etc/ppp/sslvpn.pid2
+	install -m 644 netExtender.1 /usr/share/man/man1/netExtender.1
+	install -m 755 libNetExtender.so $USRLIB
+	install -m 755 libNetExtenderEpc.so $USRLIB
+	install -m 644 $CABUNDLE /usr/share/netExtender
+
+	# Don't use USRLIB variable for jar; netExtenderGui is hard-coded to /usr/lib
+	install -m 644 NetExtender.jar /usr/lib
+	install -m 644 icons/* /usr/share/netExtender/icons
+	install -m 664 NetExtender.desktop /usr/share/netExtender
+
+	/usr/sbin/netExtender -i
+	chmod 755 /etc/ppp/ip-up /etc/ppp/ip-down
+	chmod 755 /etc/ppp/ipv6-up /etc/ppp/ipv6-down
+
+	install_menu_shortcut
+}
+
+function install_menu_shortcut
+{
+	mkdir -p /usr/share/applications
+	cp /usr/share/netExtender/NetExtender.desktop /usr/share/applications/sonicwall-netextender.desktop
+	chown -f root /usr/share/applications/sonicwall-netextender.desktop
+	chgrp -f root /usr/share/applications/sonicwall-netextender.desktop
+	chmod -f 644 /usr/share/applications/sonicwall-netextender.desktop
+}
+
+## MAIN INSTALLATION ###################################################
+assert_running_as_root
+
+check_64bit
+check_net_tools
+check_library_dependencies
+check_pppd
+
+# If we make it here, libraries should all be good to go
+install_files
+
+exit_success

@@ -1,0 +1,8 @@
+#!/bin/sh -
+if [ -f /usr/lib/NetExtender.jar ]
+then
+	java -jar /usr/lib/NetExtender.jar
+else
+	echo 'Could not find /usr/lib/NetExtender.jar.'
+	echo 'Please reinstall NetExtender.'
+fi

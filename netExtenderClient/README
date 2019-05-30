@@ -1,0 +1,20 @@
+SonicWALL NetExtender Client for Linux
+
+To install:
+1. First unzip the tar ball, type: 
+	tar zxvf NetExtender.tgz or
+	tar zxvf NetExtender.x86_64.tgz (64-bit) 
+
+2. Run the install script:
+	cd netExtenderClient
+	./install	(you need root permission)		
+
+To run:
+Just type: 
+	netExtender
+If /usr/sbin is not in your default path, type:
+	/usr/sbin/netExtender
+
+See man page for more details, type:
+	 man netExtender
+
